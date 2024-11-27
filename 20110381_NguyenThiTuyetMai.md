@@ -29,7 +29,7 @@ After that we can dobule check by using command
 
 `sysctl -a | grep ip_forward`
 
-[Image 1](images/1.png)
+![Image 1](images/1.png)
 
 And now we config iptables to redirect traffic from subnet1 to subnet2 and vice versa.
 
@@ -71,12 +71,12 @@ Encrypt the file with aes-cipher in CTR and OFB modes. How do you evaluate both 
 `openssl aes-256-ofb -in myfile.txt -out myfile-256-ofb.enc`
 
 image 2.png
-[Image 2](images/2.png)
+![Image 2](images/2.png)
 
 - It can be observed that after the above commands has successfully spit out two encrypted files
 - If we try to open and read them the same way before the encryption, the content cannot be read anymore
 image 3.png
-[Image 3](images/3.png)
+![Image 3](images/3.png)
 
 - In terms of error propagation:
 + CTR: each block of plaintext is encrypted independently using a counter value. If an error occurs in one block, it will not affect the decryption of other blocks. 
