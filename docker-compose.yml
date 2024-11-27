@@ -1,0 +1,33 @@
+services:
+  router:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet1
+      - subnet2
+  pc0:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet1
+  pc1:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet2
+  pc2:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet2
+
+networks:
+  subnet1:
+    ipam:
+      config:
+        - subnet: 172.16.1.0/24
+
+  subnet2:
+    ipam:
+      config:
+        - subnet: 172.16.2.0/24
