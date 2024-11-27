@@ -14,7 +14,65 @@ To setup the containers as per request, here docker compose is used for its conv
 
 The docker-compose.yml attached along doesn't contain any prebuilt server. All four services are raw ubuntu with pc01 after that being installed with python and fastapi to create a simple webserver.
 
+```
+services:
+  router:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet1
+      - subnet2
+  pc0:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet1
+  pc1:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet2
+  pc2:
+    image: ubuntu:latest
+    tty: true
+    networks:
+      - subnet2
+
+networks:
+  subnet1:
+    ipam:
+      config:
+        - subnet: 172.16.1.0/24
+
+  subnet2:
+    ipam:
+      config:
+        - subnet: 172.16.2.0/24
+```
+
 Using the below command to start up webserver
+
+```
+# app.py
+import uvicorn
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+@app.get("/")
+async def home():
+    return """
+    <h2>HOMEPAGE</h2>
+"""
+
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="127.0.0.1", port=80)
+```
 
 `python3 app.py`
 
@@ -48,6 +106,17 @@ Note: 172.16.1.3 is our router IP, checking by using docker inspect
   Config the router to block ssh to web server from PC1, leaving ssh/web access normally for all other hosts from subnet 1.   
 
 **Answer 3**:
+- For this config, we continue using iptables to block and allow traffic, as mention above we have already redirect all traffic from subnet1 to subnet2 and vice versa.
+
+- Allow SSH and web access from all hosts on subnet 1 except PC1
+`iptables -A INPUT -p tcp -s 172.16.1.0/24 --dport 22 -j ACCEPT`
+`iptables -A INPUT -p tcp -s 172.16.1.0/24 --dport 80 -j ACCEPT`
+
+- Block SSH access from PC1 to web server
+`iptables -A INPUT -p tcp -s 172.16.2.3 --dport 22 -j DROP`
+
+- Allow all other traffic
+`iptables -A INPUT -j ACCEPT`
 
 **Question 4**:
 - PC1 now servers as a UDP server, make sure that it can reply UDP ping from other hosts on both subnets.
@@ -79,14 +148,33 @@ image 3.png
 ![Image 3](images/3.png)
 
 - In terms of error propagation:
-+ CTR: each block of plaintext is encrypted independently using a counter value. If an error occurs in one block, it will not affect the decryption of other blocks. 
-+ OFB: the output of this block is the input of the next block, therefore if an error occurs in one block, the whole chain after it will be affected
+  + CTR: each block of plaintext is encrypted independently using a counter value. If an error occurs in one block, it will not affect the decryption of other blocks. 
+  + OFB: the output of this block is the input of the next block, therefore if an error occurs in one block, the whole chain after it will be affected
 
 - In terms of adjavent plaintext blocks:
-+ CTR: since each block is encrypted independenly, identical blocks will result in identical ciphertext blocks.
-+ OFB: all blocks are related to each other, identical blocks will not result in identical ciphertext blocks.
+  + CTR: since each block is encrypted independenly, identical blocks will result in identical ciphertext blocks.
+  + OFB: all blocks are related to each other, identical blocks will not result in identical ciphertext blocks.
 
-- Once we got the encrypted file, next is to create a digital signature (HMAC-SHA256) to ensure the integrity of the file during transmission
+- Once we got the encrypted file, next is to create a digital signature to ensure the integrity of the file during transmission
+
+- First create a public-private key pair using openssl
+
+`openssl genrsa -out private_key.pem 2048`
+`openssl req -x509 -new -key private_key.pem -out cert.csr`
+
+- The two files can be observed using ls command
+
+![Image 4](images/4.png)
+
+- Next we use the private key to sign the digital signature
+
+`openssl dgst -sha256 -sign private_key.pem -out signature.bin myfile.txt`
+
+![Image 5](images/5.png)
+
+- And that's all of the preparation steps, to transfer from PC2 to PC0, we can use the scp command (secure copy) to transfer our myfile.txt.
+
+`scp myfile-256-ctr.enc myfile-256-ofb.enc signature.bin root@172.16.1.3:/`
 
 **Question 2**:
 - Assume the 6th bit in the ciphered file is corrupted.
@@ -94,11 +182,22 @@ image 3.png
 
 **Answer 2**:
 
+- Pretend that the 6th bit is corrupted, we use python to recreate that.
+
+
 **Question 3**:
 - Decrypt corrupted files on PC0.
 - Comment on both ciphers in terms of error propagation and adjacent plaintext blocks criteria. 
 
+**Answer 2**:
+- To decrypt the corrupted file, we use similar command to when encrypt
 
+`openssl enc -d -aes-256-ctr -K 123456 -in corrupted_ctr.txt -out decrypted_ctr.txt`
+`openssl enc -d -aes-256-ofb -K 123456 -in corrupted_ofb.txt -out decrypted_ofb.txt`
+
+- After decrypting the corrupted ciphertexts, we can observe the following:
+  + CTR: the corrupted bit in the ciphertext has resulted error at that one specific bit in the decrypted plaintext. The error has not propagated to adjacent plaintext blocks.
+  + OFB: the corrupted bit in the ciphertext has resulted error happened in many places the decrypted plaintext. The error has propagated to adjacent plaintext blocks.
 
 
 
